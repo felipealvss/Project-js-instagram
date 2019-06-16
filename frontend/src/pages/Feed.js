@@ -1,5 +1,7 @@
 
 import React, { Component } from 'react';
+import api from '../services/api';
+import io from 'socket.io-client';
 import './Feed.css';
 
 import more from '../assets/more.svg';
@@ -9,46 +11,93 @@ import send from '../assets/send.svg';
 
 class Feed extends Component {
 
+    state = {
+
+        feed: [],
+    };
+
+    async componentDidMount(){
+
+        this.registerToSocket();
+
+        const response = await api.get('posts');
+
+        this.setState({
+
+            feed: response.data
+        })
+    }
+
+    registerToSocket = () => {
+
+        const socket = io('http://localhost:3030');
+
+        socket.on('post', newPost => {
+
+            this.setState({
+
+                feed: [newPost, ... this.state.feed]
+            })
+        })
+
+        socket.on('like', likedPost => {
+
+            this.setState({
+
+                feed: this.state.feed.map(post => 
+                    post._id === likedPost._id ? likedPost : post
+                )
+            })
+        })
+    }
+
+    handleLike = id => {
+
+        api.post(`/posts/${id}/like`)
+    }
+
     render(){
 
         return(
             
             <section id="post-list">
+                { this.state.feed.map(post => (
+                    <article key = { post._id }>
 
-                <article>
+                        <header>
 
-                    <header>
+                            <div className="user-info">
 
-                        <div className="user-info">
+                                <span>{post.author}</span>
+                                <span className="place">{post.place}</span>
+                            </div>
 
-                            <span>Felipe Alves</span>
-                            <span className="plae">Rio do Sul</span>
-                        </div>
+                            <img src={more} alt="Mais" />
+                        </header>
 
-                        <img src={more} alt="Mais" />
-                    </header>
+                        <img src={`http://localhost:3030/files/${post.image}`} alt="" />
 
-                    <img src="http://localhost:3030/files/wallpaper.jpg" alt="" />
+                        <footer>
 
-                    <footer>
+                            <div className="actions">
 
-                          <div className="actions">
+                                <button type="button" onClick={() => this.handleLike(post._id)}>
+                                    <img src={like} alt="" />
+                                </button>
+                                <img src={comment} alt="" />
+                                <img src={send} alt="" />
+                            </div>
 
-                            <img src={like} alt="" />
-                            <img src={comment} alt="" />
-                            <img src={send} alt="" />
-                          </div>
+                            <strong>{post.likes} curtidas</strong>
 
-                          <strong>837 curtidas</strong>
+                            <p>
 
-                          <p>
-
-                            Post só o filé aqui, pense!
-                            <span>#SóOShow #VaiDarBom #Correria #CursoJS</span>
-                          </p>
-
-                    </footer>
-                </article>
+                                {post.description}
+                                <span>{post.hashtags}</span>
+                            </p>
+                        </footer>
+                    </article>
+                )) }
             </section>
         )
     }
